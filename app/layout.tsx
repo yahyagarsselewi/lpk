@@ -3,8 +3,15 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'LPK Kairouan — Séries & Devoirs',
-  description: 'Ressources pédagogiques du Lycée Pilote de Kairouan.',
+  title: 'LPK Kairouan — Vie scolaire, séries et photos de classes',
+  description: 'Portail officiel du Lycée Pilote de Kairouan : annonces de la direction, séries, devoirs, emplois du temps et photos de classes.',
+  keywords: ['Lycée Pilote Kairouan', 'séries devoirs Kairouan', 'emploi du temps', 'photos de classe', 'vie scolaire Tunisie'],
+  openGraph: {
+    title: 'LPK Kairouan — Vie scolaire et ressources pédagogiques',
+    description: 'Retrouvez les annonces, ressources, emplois du temps et photos de la communauté scolaire.',
+    type: 'website',
+    locale: 'fr_TN',
+  },
   generator: 'v0.app',
   icons: {
     icon: [
