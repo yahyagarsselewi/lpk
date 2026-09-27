@@ -48,8 +48,11 @@ export default function Page() {
     if (file) setImage(URL.createObjectURL(file))
   }
   function publish() {
-    if (!draft.title.trim() || !draft.body.trim() || ((postKind === 'photo' || postKind === 'schedule') && !image)) return
-    setPosts((current) => [{ ...draft, kind: postKind, image, className: publishClass, author: publisherRole === 'teacher' ? 'Enseignant' : publisherRole === 'student' ? 'Élève' : 'Direction' }, ...current])
+    if ((postKind === 'photo' || postKind === 'schedule') && !image) return
+    if (postKind === 'announcement' && (!draft.title.trim() || !draft.body.trim())) return
+    const title = draft.title.trim() || (postKind === 'photo' ? `Photo de ${publishClass}` : `Emploi du temps — ${publishClass}`)
+    const body = draft.body.trim() || 'Publication partagée avec la communauté scolaire.'
+    setPosts((current) => [{ title, body, kind: postKind, image, className: publishClass, author: publisherRole === 'teacher' ? 'Enseignant' : publisherRole === 'student' ? 'Élève' : 'Direction' }, ...current])
     setDraft({ title: '', body: '' }); setImage(''); setDirectorOpen(false)
   }
 
