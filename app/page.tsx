@@ -35,6 +35,16 @@ export default function Page() {
   const [image, setImage] = useState('')
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null)
 
+  const searchResults = useMemo(() => {
+    const term = query.trim().toLowerCase()
+    if (!term) return []
+    return [
+      ...resources.map((item) => ({ type: item.type, title: item.title, detail: `${item.subject} · ${item.className} · ${item.teacher}`, target: 'resources' })),
+      ...classGroups.flatMap((group) => group.classes.map((className) => ({ type: group.level, title: className, detail: `${group.description} · Emploi du temps et photos de classe`, target: 'classes' }))),
+      ...posts.map((post) => ({ type: post.kind === 'photo' ? 'PHOTO' : post.kind === 'schedule' ? 'EMPLOI' : 'ANNONCE', title: post.title, detail: `${post.className ?? 'Vie scolaire'} · ${post.author ?? 'LPK Kairouan'}`, target: 'school-life' })),
+    ].filter((item) => `${item.title} ${item.detail}`.toLowerCase().includes(term)).slice(0, 8)
+  }, [query, posts])
+
   const filtered = useMemo(() => resources.filter((item) => {
     const matchesFilter = filter === 'Tous' || item.className.toLowerCase().includes(filter.toLowerCase().replace(' année', '').replace(' (bac)', ''))
     return matchesFilter && `${item.subject} ${item.title} ${item.className} ${item.teacher}`.toLowerCase().includes(query.toLowerCase())
@@ -60,8 +70,9 @@ export default function Page() {
   return <div className="site-shell">
     <header className="topbar"><div className="topbar-inner"><a className="brand" href="#top"><span className="brand-mark" aria-hidden="true">⌑</span><span><strong>LPK Kairouan</strong><small>LYCÉE PILOTE</small></span></a><label className="search"><span aria-hidden="true">⌕</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Enseignant, matière ou niveau..." aria-label="Rechercher" /></label><div className="language"><button>AR</button><button className="active">FR</button><button>EN</button></div><div className="header-actions"><button aria-label="Accès directeur" onClick={() => openPublisher('director')}>♧</button></div></div></header>
     <nav className="main-nav"><div className="nav-inner"><button className={view === 'home' ? 'selected' : ''} onClick={() => setView('home')}>Accueil &amp; Ressources</button><button className={view === 'classes' ? 'selected' : ''} onClick={() => setView('classes')}>Classes &amp; Emplois du Temps</button></div></nav>
-    <main id="top">
-      {view === 'home' ? <>
+  <main id="top">
+  {query.trim() && <section className="search-results content-width" aria-live="polite"><div className="section-heading"><div><p className="eyebrow">RECHERCHE DU PORTAIL</p><h2>Résultats pour <em>« {query} »</em></h2></div><span className="result-count">{searchResults.length} résultat{searchResults.length > 1 ? 's' : ''}</span></div>{searchResults.length ? <div className="search-result-grid">{searchResults.map((result, index) => <button className="search-result-card" key={`${result.title}-${index}`} onClick={() => { setQuery(''); if (result.target === 'classes') setView('classes'); else document.getElementById(result.target)?.scrollIntoView({ behavior: 'smooth' }) }}><span className="tag">{result.type}</span><strong>{result.title}</strong><small>{result.detail}</small><span className="result-arrow" aria-hidden="true">↗</span></button>)}</div> : <div className="empty">Aucun résultat. Essayez un nom d&apos;enseignant, une matière ou une classe.</div>}</section>}
+  {view === 'home' ? <>
         <section className="notice-section"><div className="content-width"><p className="eyebrow">AFFICHE DE LA SEMAINE</p><h1>Information de la <em>Directeur</em></h1><div className="notice-card"><div className="megaphone">⚑</div>{posts.filter((post) => post.kind === 'announcement').length ? posts.filter((post) => post.kind === 'announcement').map((post) => <div key={post.title}><h3>{post.title}</h3><p>{post.body}</p></div>) : <><p>لا يوجد شيء هنا</p><small>AUCUNE ANNONCE CETTE SEMAINE</small></>}</div></div></section>
         <div className="content-width"><div className="ad-space">ADVERTISEMENT SPACE</div></div>
         <section className="resources content-width" id="resources"><div className="section-heading"><div><p className="eyebrow">RESSOURCES PÉDAGOGIQUES</p><h2>Séries <em>&amp; Devoirs</em></h2></div></div><div className="filters">{['Tous', '1ère année', '2ème année', '3ème année', '4ème année (Bac)'].map((item) => <button key={item} className={filter === item ? 'filter active' : 'filter'} onClick={() => setFilter(item)}>{item}</button>)}</div><div className="resource-layout"><div className="resource-list">{filtered.map((item) => <article className="resource-card" key={item.title}><div className="file-icon">▤</div><div className="resource-info"><div className="resource-meta"><span className="tag">{item.type}</span><span className="subject">{item.subject}</span></div><h3>{item.title}</h3><div className="details"><span>◫ {item.className}</span><span>{item.teacher}</span><span>▣ {item.date}</span></div></div><button className="download" aria-label={`Télécharger ${item.title}`}>⇩</button></article>)}</div><aside className="side-ad">ADVERTISEMENT SPACE</aside></div></section>
