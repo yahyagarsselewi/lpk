@@ -38,9 +38,8 @@ export default function Page() {
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
-  const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup')
   const [authError, setAuthError] = useState('')
-  const [account, setAccount] = useState({ fullName: '', email: '', password: '', role: 'student', className: '1S1' })
+  const [account, setAccount] = useState({ fullName: '', role: 'student', className: '1S1' })
 
   useEffect(() => {
     const supabase = getSupabase()
@@ -51,13 +50,11 @@ export default function Page() {
 
   async function submitAccount() {
     setAuthError('')
-    if (authMode === 'signup' && (!account.fullName.trim() || (account.role === 'student' && !account.className))) return setAuthError('Remplissez tous les champs obligatoires.')
-    const supabase = getSupabase()
-    const result = authMode === 'signup'
-      ? await supabase.auth.signUp({ email: account.email, password: account.password, options: { data: { full_name: account.fullName, role: account.role, class_name: account.className } } })
-      : await supabase.auth.signInWithPassword({ email: account.email, password: account.password })
-    if (result.error) setAuthError(result.error.message)
-    else if (authMode === 'signup' && !result.data.session) setAuthError('Vérifiez votre e-mail pour confirmer votre compte.')
+    if (!account.fullName.trim() || (account.role === 'student' && !account.className)) return setAuthError('Remplissez tous les champs obligatoires.')
+    const { error } = await getSupabase().auth.signInAnonymously({
+      options: { data: { full_name: account.fullName.trim(), role: account.role, class_name: account.className } },
+    })
+    if (error) setAuthError('La création du compte est indisponible pour le moment. Activez les connexions anonymes dans Supabase.')
   }
 
   const searchResults = useMemo(() => {
@@ -93,7 +90,7 @@ export default function Page() {
   }
 
   if (authLoading) return <div className="auth-loading">Chargement du portail…</div>
-  if (!user) return <main className="auth-page"><section className="auth-card"><div className="auth-mark">⌑</div><p className="eyebrow">LPK KAIROUAN · ESPACE SÉCURISÉ</p><h1>{authMode === 'signup' ? 'Bienvenue dans la communauté.' : 'Ravi de vous revoir.'}</h1><p className="auth-lead">Créez votre compte avec votre e-mail. Aucun compte Google n&apos;est requis.</p>{authMode === 'signup' && <><label>Nom complet<input value={account.fullName} onChange={(e) => setAccount({ ...account, fullName: e.target.value })} placeholder="Votre nom et prénom" /></label><label>Vous êtes<select value={account.role} onChange={(e) => setAccount({ ...account, role: e.target.value })}><option value="student">Élève</option><option value="teacher">Enseignant</option></select></label>{account.role === 'student' && <label>Votre classe<select value={account.className} onChange={(e) => setAccount({ ...account, className: e.target.value })}>{classGroups.flatMap((group) => group.classes).map((className) => <option key={className}>{className}</option>)}</select></label>}</>}<label>E-mail<input type="email" value={account.email} onChange={(e) => setAccount({ ...account, email: e.target.value })} placeholder="vous@exemple.com" /></label><label>Mot de passe<input type="password" value={account.password} onChange={(e) => setAccount({ ...account, password: e.target.value })} placeholder="Au moins 6 caractères" /></label>{authError && <p className="auth-error">{authError}</p>}<button className="publish primary" onClick={submitAccount}>{authMode === 'signup' ? 'Créer mon compte' : 'Se connecter'}</button><button className="auth-switch" onClick={() => setAuthMode(authMode === 'signup' ? 'login' : 'signup')}>{authMode === 'signup' ? 'J’ai déjà un compte' : 'Créer un compte'}</button></section></main>
+  if (!user) return <main className="auth-page"><section className="auth-card"><div className="auth-mark">⌑</div><p className="eyebrow">LPK KAIROUAN · ESPACE MEMBRE</p><h1>Bienvenue dans la communauté.</h1><p className="auth-lead">Créez votre profil en quelques secondes, sans e-mail ni mot de passe.</p><label>Nom complet<input value={account.fullName} onChange={(e) => setAccount({ ...account, fullName: e.target.value })} placeholder="Votre nom et prénom" autoComplete="name" /></label><label>Vous êtes<select value={account.role} onChange={(e) => setAccount({ ...account, role: e.target.value })}><option value="student">Élève</option><option value="teacher">Enseignant</option></select></label>{account.role === 'student' && <label>Votre classe<select value={account.className} onChange={(e) => setAccount({ ...account, className: e.target.value })}>{classGroups.flatMap((group) => group.classes).map((className) => <option key={className}>{className}</option>)}</select></label>}{authError && <p className="auth-error">{authError}</p>}<button className="publish primary" onClick={submitAccount}>Créer mon compte</button></section></main>
 
   return <div className="site-shell">
     <header className="topbar"><div className="topbar-inner"><a className="brand" href="#top"><span className="brand-mark" aria-hidden="true">⌑</span><span><strong>LPK Kairouan</strong><small>LYCÉE PILOTE</small></span></a><label className="search"><span aria-hidden="true">⌕</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Enseignant, matière ou niveau..." aria-label="Rechercher" /></label><div className="language"><button>AR</button><button className="active">FR</button><button>EN</button></div><div className="header-actions"><button aria-label="Accès directeur" onClick={() => openPublisher('director')}>♧</button></div></div></header>
