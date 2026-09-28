@@ -1,6 +1,8 @@
 'use client'
 
-import { ChangeEvent, useMemo, useState } from 'react'
+import { ChangeEvent, useEffect, useMemo, useState } from 'react'
+import type { User } from '@supabase/supabase-js'
+import { getSupabase } from '@/lib/supabase'
 
 const resources = [
   { type: 'SÉRIE', subject: 'Mathématiques', title: 'Série — Continuité.pdf', className: '4ème Math 1', teacher: 'Mme. Ben Salah', date: '24 sept. 2026' },
@@ -34,6 +36,29 @@ export default function Page() {
   const [draft, setDraft] = useState({ title: '', body: '' })
   const [image, setImage] = useState('')
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup')
+  const [authError, setAuthError] = useState('')
+  const [account, setAccount] = useState({ fullName: '', email: '', password: '', role: 'student', className: '1S1' })
+
+  useEffect(() => {
+    const supabase = getSupabase()
+    supabase.auth.getUser().then(({ data }) => { setUser(data.user); setAuthLoading(false) })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null))
+    return () => listener.subscription.unsubscribe()
+  }, [])
+
+  async function submitAccount() {
+    setAuthError('')
+    if (authMode === 'signup' && (!account.fullName.trim() || (account.role === 'student' && !account.className))) return setAuthError('Remplissez tous les champs obligatoires.')
+    const supabase = getSupabase()
+    const result = authMode === 'signup'
+      ? await supabase.auth.signUp({ email: account.email, password: account.password, options: { data: { full_name: account.fullName, role: account.role, class_name: account.className } } })
+      : await supabase.auth.signInWithPassword({ email: account.email, password: account.password })
+    if (result.error) setAuthError(result.error.message)
+    else if (authMode === 'signup' && !result.data.session) setAuthError('Vérifiez votre e-mail pour confirmer votre compte.')
+  }
 
   const searchResults = useMemo(() => {
     const term = query.trim().toLowerCase()
@@ -67,6 +92,9 @@ export default function Page() {
     setDraft({ title: '', body: '' }); setImage(''); setDirectorOpen(false)
   }
 
+  if (authLoading) return <div className="auth-loading">Chargement du portail…</div>
+  if (!user) return <main className="auth-page"><section className="auth-card"><div className="auth-mark">⌑</div><p className="eyebrow">LPK KAIROUAN · ESPACE SÉCURISÉ</p><h1>{authMode === 'signup' ? 'Bienvenue dans la communauté.' : 'Ravi de vous revoir.'}</h1><p className="auth-lead">Créez votre compte avec votre e-mail. Aucun compte Google n&apos;est requis.</p>{authMode === 'signup' && <><label>Nom complet<input value={account.fullName} onChange={(e) => setAccount({ ...account, fullName: e.target.value })} placeholder="Votre nom et prénom" /></label><label>Vous êtes<select value={account.role} onChange={(e) => setAccount({ ...account, role: e.target.value })}><option value="student">Élève</option><option value="teacher">Enseignant</option></select></label>{account.role === 'student' && <label>Votre classe<select value={account.className} onChange={(e) => setAccount({ ...account, className: e.target.value })}>{classGroups.flatMap((group) => group.classes).map((className) => <option key={className}>{className}</option>)}</select></label>}</>}<label>E-mail<input type="email" value={account.email} onChange={(e) => setAccount({ ...account, email: e.target.value })} placeholder="vous@exemple.com" /></label><label>Mot de passe<input type="password" value={account.password} onChange={(e) => setAccount({ ...account, password: e.target.value })} placeholder="Au moins 6 caractères" /></label>{authError && <p className="auth-error">{authError}</p>}<button className="publish primary" onClick={submitAccount}>{authMode === 'signup' ? 'Créer mon compte' : 'Se connecter'}</button><button className="auth-switch" onClick={() => setAuthMode(authMode === 'signup' ? 'login' : 'signup')}>{authMode === 'signup' ? 'J’ai déjà un compte' : 'Créer un compte'}</button></section></main>
+
   return <div className="site-shell">
     <header className="topbar"><div className="topbar-inner"><a className="brand" href="#top"><span className="brand-mark" aria-hidden="true">⌑</span><span><strong>LPK Kairouan</strong><small>LYCÉE PILOTE</small></span></a><label className="search"><span aria-hidden="true">⌕</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Enseignant, matière ou niveau..." aria-label="Rechercher" /></label><div className="language"><button>AR</button><button className="active">FR</button><button>EN</button></div><div className="header-actions"><button aria-label="Accès directeur" onClick={() => openPublisher('director')}>♧</button></div></div></header>
     <nav className="main-nav"><div className="nav-inner"><button className={view === 'home' ? 'selected' : ''} onClick={() => setView('home')}>Accueil &amp; Ressources</button><button className={view === 'classes' ? 'selected' : ''} onClick={() => setView('classes')}>Classes &amp; Emplois du Temps</button></div></nav>
@@ -81,7 +109,7 @@ export default function Page() {
     </main>
     <footer><strong>LPK Kairouan</strong><span>Created by Yahya Gharsellaoui</span></footer>
     <div className="community-bar"><span>Partager avec la communauté</span><button className="glass-button" onClick={() => openPublisher('student')}>Élève · Publier une photo</button><button className="glass-button" onClick={() => openPublisher('teacher')}>Enseignant · Publier une photo</button></div>
-    {directorOpen && <div className="modal-backdrop" onClick={() => setDirectorOpen(false)}><section className="director-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setDirectorOpen(false)} aria-label="Fermer">×</button>{!authenticated ? <><p className="eyebrow">ESPACE DIRECTION</p><h2>Accès directeur</h2><p>Entrez le code pour publier sur le site.</p><input className="director-code" type="password" inputMode="numeric" maxLength={4} value={code} onChange={(e) => setCode(e.target.value)} placeholder="Code directeur" /><button className="publish primary" onClick={unlock}>Ouvrir l&apos;espace</button></> : <><p className="eyebrow">PUBLICATION · {publisherRole === 'student' ? 'ÉLÈVE' : publisherRole === 'teacher' ? 'ENSEIGNANT' : 'DIRECTION'}</p><h2>Nouvelle publication</h2>{publisherRole === 'director' && <div className="publish-tabs">{[['announcement','Annonce'],['schedule','Emploi'],['photo','Photo de classe']].map(([value, label]) => <button key={value} className={postKind === value ? 'active' : ''} onClick={() => setPostKind(value as Post['kind'])}>{label}</button>)}</div>}<input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Titre" /><textarea value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} placeholder={postKind === 'photo' ? 'Description de la photo' : 'Contenu de la publication'} rows={4} />{(postKind === 'photo' || postKind === 'schedule') && <><label className="field-label" htmlFor="publish-class">Classe concernée</label><select id="publish-class" value={publishClass} onChange={(e) => setPublishClass(e.target.value)}>{classGroups.flatMap((group) => group.classes).map((className) => <option key={className}>{className}</option>)}</select><label className="image-upload">Choisir une photo<input type="file" accept="image/*" onChange={pickImage} /></label></>}{image && <img className="image-preview" src={image} alt="Aperçu de la photo" />}<button className="publish primary" onClick={publish}>Publier maintenant</button></>}</section></div>}
+    {directorOpen && <div className="modal-backdrop" onClick={() => setDirectorOpen(false)}><section className="director-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setDirectorOpen(false)} aria-label="Fermer">×</button>{!authenticated ? <><p className="eyebrow">ESPACE DIRECTION</p><h2>Accès directeur</h2><p>Entrez le code pour publier sur le site.</p><input className="director-code" type="password" inputMode="numeric" maxLength={4} value={code} onChange={(e) => setCode(e.target.value)} placeholder="Code directeur" /><button className="publish primary" onClick={unlock}>Ouvrir l&apos;espace</button></> : <><p className="eyebrow">PUBLICATION · {publisherRole === 'student' ? 'ÉLÈVE' : publisherRole === 'teacher' ? 'ENSEIGNANT' : 'DIRECTION'}</p><h2>Nouvelle publication</h2>{publisherRole === 'director' && <div className="publish-tabs">{[['announcement','Annonce'],['schedule','Emploi'],['photo','Photo de classe']].map(([value, label]) => <button key={value} className={postKind === value ? 'active' : ''} onClick={() => setPostKind(value as Post['kind'])}>{label}</button>)}</div>}<input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Titre" />{postKind !== 'photo' && <textarea value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} placeholder="Contenu de la publication" rows={4} />}{(postKind === 'photo' || postKind === 'schedule') && <><label className="field-label" htmlFor="publish-class">Classe concernée</label><select id="publish-class" value={publishClass} onChange={(e) => setPublishClass(e.target.value)}>{classGroups.flatMap((group) => group.classes).map((className) => <option key={className}>{className}</option>)}</select><label className="image-upload">Choisir une photo<input type="file" accept="image/*" onChange={pickImage} /></label></>}{image && <img className="image-preview" src={image} alt="Aperçu de la photo" />}<button className="publish primary" onClick={publish}>Publier maintenant</button></>}</section></div>}
     {lightboxImage && <div className="lightbox-backdrop" onClick={() => setLightboxImage(null)}><div className="lightbox-content" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setLightboxImage(null)} aria-label="Fermer la photo">×</button><img src={lightboxImage.src} alt={lightboxImage.alt} /><p>{lightboxImage.alt}</p></div></div>}
   </div>
 }
