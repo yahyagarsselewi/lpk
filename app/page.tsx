@@ -1,8 +1,6 @@
 'use client'
 
-import { ChangeEvent, useEffect, useMemo, useState } from 'react'
-import type { User } from '@supabase/supabase-js'
-import { getSupabase } from '@/lib/supabase'
+import { ChangeEvent, useMemo, useState } from 'react'
 
 const resources = [
   { type: 'SÉRIE', subject: 'Mathématiques', title: 'Série — Continuité.pdf', className: '4ème Math 1', teacher: 'Mme. Ben Salah', date: '24 sept. 2026' },
@@ -36,26 +34,6 @@ export default function Page() {
   const [draft, setDraft] = useState({ title: '', body: '' })
   const [image, setImage] = useState('')
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null)
-  const [user, setUser] = useState<User | null>(null)
-  const [authLoading, setAuthLoading] = useState(true)
-  const [authError, setAuthError] = useState('')
-  const [account, setAccount] = useState({ fullName: '', role: 'student', className: '1S1' })
-
-  useEffect(() => {
-    const supabase = getSupabase()
-    supabase.auth.getUser().then(({ data }) => { setUser(data.user); setAuthLoading(false) })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null))
-    return () => listener.subscription.unsubscribe()
-  }, [])
-
-  async function submitAccount() {
-    setAuthError('')
-    if (!account.fullName.trim() || (account.role === 'student' && !account.className)) return setAuthError('Remplissez tous les champs obligatoires.')
-    const { error } = await getSupabase().auth.signInAnonymously({
-      options: { data: { full_name: account.fullName.trim(), role: account.role, class_name: account.className } },
-    })
-    if (error) setAuthError('La création du compte est indisponible pour le moment. Activez les connexions anonymes dans Supabase.')
-  }
 
   const searchResults = useMemo(() => {
     const term = query.trim().toLowerCase()
@@ -89,9 +67,6 @@ export default function Page() {
     setDraft({ title: '', body: '' }); setImage(''); setDirectorOpen(false)
   }
 
-  if (authLoading) return <div className="auth-loading">Chargement du portail…</div>
-  if (!user) return <main className="auth-page"><section className="auth-card"><div className="auth-mark">⌑</div><p className="eyebrow">LPK KAIROUAN · ESPACE MEMBRE</p><h1>Bienvenue dans la communauté.</h1><p className="auth-lead">Créez votre profil en quelques secondes, sans e-mail ni mot de passe.</p><label>Nom complet<input value={account.fullName} onChange={(e) => setAccount({ ...account, fullName: e.target.value })} placeholder="Votre nom et prénom" autoComplete="name" /></label><label>Vous êtes<select value={account.role} onChange={(e) => setAccount({ ...account, role: e.target.value })}><option value="student">Élève</option><option value="teacher">Enseignant</option></select></label>{account.role === 'student' && <label>Votre classe<select value={account.className} onChange={(e) => setAccount({ ...account, className: e.target.value })}>{classGroups.flatMap((group) => group.classes).map((className) => <option key={className}>{className}</option>)}</select></label>}{authError && <p className="auth-error">{authError}</p>}<button className="publish primary" onClick={submitAccount}>Créer mon compte</button></section></main>
-
   return <div className="site-shell">
     <header className="topbar"><div className="topbar-inner"><a className="brand" href="#top"><span className="brand-mark" aria-hidden="true">⌑</span><span><strong>LPK Kairouan</strong><small>LYCÉE PILOTE</small></span></a><label className="search"><span aria-hidden="true">⌕</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Enseignant, matière ou niveau..." aria-label="Rechercher" /></label><div className="language"><button>AR</button><button className="active">FR</button><button>EN</button></div><div className="header-actions"><button aria-label="Accès directeur" onClick={() => openPublisher('director')}>♧</button></div></div></header>
     <nav className="main-nav"><div className="nav-inner"><button className={view === 'home' ? 'selected' : ''} onClick={() => setView('home')}>Accueil &amp; Ressources</button><button className={view === 'classes' ? 'selected' : ''} onClick={() => setView('classes')}>Classes &amp; Emplois du Temps</button></div></nav>
@@ -106,7 +81,7 @@ export default function Page() {
     </main>
     <footer><strong>LPK Kairouan</strong><span>Created by Yahya Gharsellaoui</span></footer>
     <div className="community-bar"><span>Partager avec la communauté</span><button className="glass-button" onClick={() => openPublisher('student')}>Élève · Publier une photo</button><button className="glass-button" onClick={() => openPublisher('teacher')}>Enseignant · Publier une photo</button></div>
-    {directorOpen && <div className="modal-backdrop" onClick={() => setDirectorOpen(false)}><section className="director-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setDirectorOpen(false)} aria-label="Fermer">×</button>{!authenticated ? <><p className="eyebrow">ESPACE DIRECTION</p><h2>Accès directeur</h2><p>Entrez le code pour publier sur le site.</p><input className="director-code" type="password" inputMode="numeric" maxLength={4} value={code} onChange={(e) => setCode(e.target.value)} placeholder="Code directeur" /><button className="publish primary" onClick={unlock}>Ouvrir l&apos;espace</button></> : <><p className="eyebrow">PUBLICATION · {publisherRole === 'student' ? 'ÉLÈVE' : publisherRole === 'teacher' ? 'ENSEIGNANT' : 'DIRECTION'}</p><h2>Nouvelle publication</h2>{publisherRole === 'director' && <div className="publish-tabs">{[['announcement','Annonce'],['schedule','Emploi'],['photo','Photo de classe']].map(([value, label]) => <button key={value} className={postKind === value ? 'active' : ''} onClick={() => setPostKind(value as Post['kind'])}>{label}</button>)}</div>}<input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Titre" />{postKind !== 'photo' && <textarea value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} placeholder="Contenu de la publication" rows={4} />}{(postKind === 'photo' || postKind === 'schedule') && <><label className="field-label" htmlFor="publish-class">Classe concernée</label><select id="publish-class" value={publishClass} onChange={(e) => setPublishClass(e.target.value)}>{classGroups.flatMap((group) => group.classes).map((className) => <option key={className}>{className}</option>)}</select><label className="image-upload">Choisir une photo<input type="file" accept="image/*" onChange={pickImage} /></label></>}{image && <img className="image-preview" src={image} alt="Aperçu de la photo" />}<button className="publish primary" onClick={publish}>Publier maintenant</button></>}</section></div>}
+    {directorOpen && <div className="modal-backdrop" onClick={() => setDirectorOpen(false)}><section className="director-modal" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setDirectorOpen(false)} aria-label="Fermer">×</button>{!authenticated ? <><p className="eyebrow">ESPACE DIRECTION</p><h2>Accès directeur</h2><p>Entrez le code pour publier sur le site.</p><input className="director-code" type="password" inputMode="numeric" maxLength={4} value={code} onChange={(e) => setCode(e.target.value)} placeholder="Code directeur" /><button className="publish primary" onClick={unlock}>Ouvrir l&apos;espace</button></> : <><p className="eyebrow">PUBLICATION · {publisherRole === 'student' ? 'ÉLÈVE' : publisherRole === 'teacher' ? 'ENSEIGNANT' : 'DIRECTION'}</p><h2>Nouvelle publication</h2>{publisherRole === 'director' && <div className="publish-tabs">{[['announcement','Annonce'],['schedule','Emploi'],['photo','Photo de classe']].map(([value, label]) => <button key={value} className={postKind === value ? 'active' : ''} onClick={() => setPostKind(value as Post['kind'])}>{label}</button>)}</div>}<input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Titre" /><textarea value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} placeholder={postKind === 'photo' ? 'Description de la photo' : 'Contenu de la publication'} rows={4} />{(postKind === 'photo' || postKind === 'schedule') && <><label className="field-label" htmlFor="publish-class">Classe concernée</label><select id="publish-class" value={publishClass} onChange={(e) => setPublishClass(e.target.value)}>{classGroups.flatMap((group) => group.classes).map((className) => <option key={className}>{className}</option>)}</select><label className="image-upload">Choisir une photo<input type="file" accept="image/*" onChange={pickImage} /></label></>}{image && <img className="image-preview" src={image} alt="Aperçu de la photo" />}<button className="publish primary" onClick={publish}>Publier maintenant</button></>}</section></div>}
     {lightboxImage && <div className="lightbox-backdrop" onClick={() => setLightboxImage(null)}><div className="lightbox-content" onClick={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setLightboxImage(null)} aria-label="Fermer la photo">×</button><img src={lightboxImage.src} alt={lightboxImage.alt} /><p>{lightboxImage.alt}</p></div></div>}
   </div>
 }
