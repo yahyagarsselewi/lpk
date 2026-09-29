@@ -13,7 +13,6 @@ export const metadata: Metadata = {
     locale: 'fr_TN',
   },
   generator: 'v0.app',
-  verification: { google: 'Ryif39UrMBO8-4Qzmjq6SI5D6EVTgRXwPbSg_RqCJJ8' },
   icons: {
     icon: [
       {
