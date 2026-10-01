@@ -19,6 +19,8 @@ const classGroups = [
 
 const classSchedule = ['08:00 — Mathématiques', '10:00 — Physique', '13:30 — Langues', '15:30 — Sciences']
 const lpkLogo = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/lpk_1740416414236-buTLyXW8vNCPQQdeSWV5JenmJxdt6b.png'
+const postsEndpoint = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/published_posts`
+const postsHeaders = { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '', 'Content-Type': 'application/json' }
 
 export default function Page() {
   useEffect(() => {
@@ -64,6 +66,13 @@ export default function Page() {
   const [image, setImage] = useState('')
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null)
 
+  useEffect(() => {
+    fetch(`${postsEndpoint}?select=*&order=created_at.desc`, { headers: postsHeaders })
+      .then((response) => response.ok ? response.json() : [])
+      .then((data: Array<Post & { class_name?: string }>) => setPosts(data.map((post) => ({ ...post, className: post.className ?? post.class_name }))))
+      .catch(() => undefined)
+  }, [])
+
   const searchResults = useMemo(() => {
     const term = query.trim().toLowerCase()
     if (!term) return []
@@ -103,15 +112,22 @@ export default function Page() {
   }
   function pickImage(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
-    if (file) setImage(URL.createObjectURL(file))
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setImage(String(reader.result))
+    reader.readAsDataURL(file)
   }
-  function publish() {
+  async function publish() {
     if ((postKind === 'photo' || postKind === 'series' || postKind === 'schedule') && !image) return
     if (postKind === 'announcement' && (!draft.title.trim() || !draft.body.trim())) return
     const title = draft.title.trim() || (postKind === 'series' ? `Série de ${publishClass} · ${publishSubject}` : postKind === 'photo' ? `Photo de ${publishClass}` : `Emploi du temps — ${publishClass}`)
     const body = draft.body.trim() || 'Publication partagée avec la communauté scolaire.'
     const post = { id: editingPostId ?? crypto.randomUUID(), title, body, kind: postKind, image, className: publishClass, author: publisherRole === 'teacher' ? publishTeacher.trim() || 'Enseignant' : publisherRole === 'student' ? 'Élève' : 'Directeur', subject: publishSubject, level: publishLevel, teacher: publishTeacher.trim() } satisfies Post
-    setPosts((current) => editingPostId ? current.map((item) => item.id === editingPostId ? post : item) : [post, ...current])
+    const response = await fetch(postsEndpoint, { method: 'POST', headers: { ...postsHeaders, Prefer: 'return=representation' }, body: JSON.stringify({ title: post.title, body: post.body, kind: post.kind, image: post.image, author: post.author, class_name: post.className, subject: post.subject, level: post.level, teacher: post.teacher }) })
+    if (!response.ok) return
+    const [savedPostRaw] = await response.json() as Array<Post & { class_name?: string }>
+    const savedPost = { ...savedPostRaw, className: savedPostRaw.className ?? savedPostRaw.class_name }
+    setPosts((current) => editingPostId ? current.map((item) => item.id === editingPostId ? savedPost : item) : [savedPost, ...current])
     setDraft({ title: '', body: '' }); setImage(''); setEditingPostId(null); setDirectorOpen(false)
   }
 
