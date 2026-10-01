@@ -6,6 +6,9 @@ export const metadata: Metadata = {
   title: 'LPK Kairouan — Vie scolaire, séries et photos de classes',
   description: 'Portail officiel du Lycée Pilote de Kairouan : annonces de la direction, séries, devoirs, emplois du temps et photos de classes.',
   keywords: ['Lycée Pilote Kairouan', 'séries devoirs Kairouan', 'emploi du temps', 'photos de classe', 'vie scolaire Tunisie'],
+  verification: {
+    google: 'googled584d21bff031510',
+  },
   openGraph: {
     title: 'LPK Kairouan — Vie scolaire et ressources pédagogiques',
     description: 'Retrouvez les annonces, ressources, emplois du temps et photos de la communauté scolaire.',
