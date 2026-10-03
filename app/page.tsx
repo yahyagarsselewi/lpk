@@ -14,7 +14,7 @@ const classGroups = [
   { level: '1ère année', label: '1S', description: 'Sciences', classes: Array.from({ length: 10 }, (_, index) => `1S${index + 1}`) },
   { level: '2ème année', label: '2S', description: 'Sciences', classes: Array.from({ length: 9 }, (_, index) => `2S${index + 1}`) },
   { level: '3ème année', label: '3S', description: 'Sciences expérimentales', classes: ['3S1', '3S2', '3S3', '3S4', '3M1', '3M2', '3T1', '3T2', '3I1'] },
-  { level: '4ème année', label: 'BAC', description: 'Sections du baccalauréat', classes: ['BACS1', 'BACS2', 'BACS3', 'BACS4', 'BACS5', 'BACI1', 'BACT1', 'BACT2', 'BACM1', 'BACM2', 'BACM3'] },
+  { level: '4ème année', label: '4', description: 'Sections de 4ème année', classes: ['4S1', '4S2', '4S3', '4S4', '4S5', '4I1', '4T1', '4T2', '4M1', '4M2', '4M3'] },
 ]
 
 const classSchedule = ['08:00 — Mathématiques', '10:00 — Physique', '13:30 — Langues', '15:30 — Sciences']
@@ -78,7 +78,7 @@ export default function Page() {
   const seriesPosts = useMemo(() => posts.filter((post) => {
     if (post.kind !== 'series') return false
     if (filter === 'Tous') return true
-    const normalized = filter === '4ème année' ? 'BAC' : filter.replace('ère année', '').replace('ème année', '')
+    const normalized = filter === '4ème année' ? '4' : filter.replace('ère année', '').replace('ème année', '')
     return (post.level ?? '').includes(filter) || (post.className ?? '').toUpperCase().startsWith(normalized.toUpperCase())
   }), [posts, filter])
 
