@@ -22,6 +22,7 @@ const homeworkSubjects = ['Langue arabe', 'Langue française', 'Langue anglaise'
 const lpkLogo = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/lpk_1740416414236-buTLyXW8vNCPQQdeSWV5JenmJxdt6b.png'
 const postsEndpoint = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/published_posts`
 const postsHeaders = { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '', 'Content-Type': 'application/json' }
+const profilesEndpoint = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/lpk_profiles`
 function getOwnerKey() {
   const existing = document.cookie.split('; ').find((item) => item.startsWith('lpk_owner='))?.split('=')[1]
   if (existing) return existing
@@ -86,6 +87,21 @@ export default function Page() {
   }, [])
 
   useEffect(() => {
+    if (!ownerKey) return
+    fetch(`${profilesEndpoint}?owner_key=eq.${encodeURIComponent(ownerKey)}&select=*`, { headers: postsHeaders })
+      .then((response) => response.ok ? response.json() : [])
+      .then((data: Array<{ full_name: string; role: 'student' | 'teacher' | 'director'; class_name: string }>) => {
+        const saved = data[0]
+        if (!saved) return
+        setOnboarding({ fullName: saved.full_name, role: saved.role, className: saved.class_name, code: '' })
+        setProfile({ role: saved.role, className: saved.class_name })
+        setPublisherRole(saved.role)
+        setProfileReady(true)
+      })
+      .catch(() => undefined)
+  }, [ownerKey])
+
+  useEffect(() => {
     fetch(`${postsEndpoint}?select=*&order=created_at.desc`, { headers: postsHeaders })
       .then((response) => response.ok ? response.json() : [])
       .then((data: Array<Post & { class_name?: string }>) => setPosts(data.map((post) => ({ ...post, className: post.className ?? post.class_name, ownerKey: post.ownerKey ?? (post as Post & { owner_key?: string }).owner_key }))))
@@ -107,12 +123,16 @@ export default function Page() {
     return matchesFilter && `${item.subject} ${item.title} ${item.className} ${item.teacher}`.toLowerCase().includes(query.toLowerCase())
   }), [filter, query])
 
-  function completeOnboarding() {
+  async function completeOnboarding() {
     setOnboardingError('')
+    if (!ownerKey) return setOnboardingError('Votre session se prépare, réessayez dans un instant.')
+    if (!onboarding.fullName.trim()) return setOnboardingError('Écrivez votre nom complet.')
     if (onboarding.role === 'teacher' && onboarding.code !== '5456') return setOnboardingError('Le code enseignant est incorrect.')
     if (onboarding.role === 'director' && onboarding.code !== '5436') return setOnboardingError('Le code directeur est incorrect.')
+    const response = await fetch(`${profilesEndpoint}?on_conflict=owner_key`, { method: 'POST', headers: { ...postsHeaders, Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({ owner_key: ownerKey, full_name: onboarding.fullName.trim(), role: onboarding.role, class_name: onboarding.className }) })
+    if (!response.ok) return setOnboardingError('Impossible d’enregistrer votre compte. Réessayez.')
     setProfile({ role: onboarding.role, className: onboarding.className })
-    setPublisherRole(onboarding.role === 'director' ? 'director' : onboarding.role)
+    setPublisherRole(onboarding.role)
     setProfileReady(true)
   }
 
@@ -156,7 +176,7 @@ export default function Page() {
     setDraft({ title: '', body: '' }); setImage(''); setEditingPostId(null); setDirectorOpen(false)
   }
 
-  if (!profileReady) return <main className="auth-page"><section className="auth-card"><div className="welcome-language" aria-label="Choisir la langue">{(['ar', 'fr', 'en'] as const).map((item) => <button key={item} className={language === item ? 'active' : ''} onClick={() => setLanguage(item)}>{item.toUpperCase()}</button>)}</div><img className="welcome-logo" src={lpkLogo} alt="Logo LPK Kairouan" /><p className="eyebrow">LPK KAIROUAN · ESPACE MEMBRE</p><h1>{copy.welcome}</h1><p className="auth-lead">Présentez-vous pour accéder aux ressources et aux espaces de publication.</p><label>Votre profil<select value={onboarding.role} onChange={(e) => setOnboarding({ ...onboarding, role: e.target.value as typeof onboarding.role })}><option value="student">Élève</option><option value="teacher">Enseignant</option><option value="director">Directeur</option></select></label>{onboarding.role === 'student' && <label>Votre classe<select value={onboarding.className} onChange={(e) => setOnboarding({ ...onboarding, className: e.target.value })}>{classGroups.flatMap((group) => group.classes).map((className) => <option key={className}>{className}</option>)}</select></label>}{onboarding.role !== 'student' && <label>Code d&apos;accès<input type="password" inputMode="numeric" maxLength={4} value={onboarding.code} onChange={(e) => setOnboarding({ ...onboarding, code: e.target.value })} placeholder={onboarding.role === 'teacher' ? 'Code enseignant' : 'Code directeur'} /></label>}{onboardingError && <p className="auth-error">{onboardingError}</p>}<button className="publish primary shimmer-cta" onClick={completeOnboarding}>Entrer sur le site</button></section></main>
+  if (!profileReady) return <main className="auth-page"><section className="auth-card"><div className="welcome-language" aria-label="Choisir la langue">{(['ar', 'fr', 'en'] as const).map((item) => <button key={item} className={language === item ? 'active' : ''} onClick={() => setLanguage(item)}>{item.toUpperCase()}</button>)}</div><img className="welcome-logo" src={lpkLogo} alt="Logo LPK Kairouan" /><p className="eyebrow">LPK KAIROUAN · ESPACE MEMBRE</p><h1>{copy.welcome}</h1><p className="auth-lead">Présentez-vous pour accéder aux ressources et aux espaces de publication.</p><label>Votre nom<input value={onboarding.fullName} onChange={(e) => setOnboarding({ ...onboarding, fullName: e.target.value })} placeholder="Prénom et nom" autoComplete="name" /></label><label>Votre profil<select value={onboarding.role} onChange={(e) => setOnboarding({ ...onboarding, role: e.target.value as typeof onboarding.role })}><option value="student">Élève</option><option value="teacher">Enseignant</option><option value="director">Directeur</option></select></label>{onboarding.role === 'student' && <label>Votre classe<select value={onboarding.className} onChange={(e) => setOnboarding({ ...onboarding, className: e.target.value })}>{classGroups.flatMap((group) => group.classes).map((className) => <option key={className}>{className}</option>)}</select></label>}{onboarding.role !== 'student' && <label>Code d&apos;accès<input type="password" inputMode="numeric" maxLength={4} value={onboarding.code} onChange={(e) => setOnboarding({ ...onboarding, code: e.target.value })} placeholder={onboarding.role === 'teacher' ? 'Code enseignant' : 'Code directeur'} /></label>}{onboardingError && <p className="auth-error">{onboardingError}</p>}<button className="publish primary shimmer-cta" onClick={completeOnboarding}>Entrer sur le site</button></section></main>
 
   return <div className="site-shell">
     <header className="topbar"><div className="topbar-inner"><a className="brand" href="#top"><img className="brand-logo" src={lpkLogo} alt="Logo LPK Kairouan" /><span><strong>LPK Kairouan</strong><small>LYCÉE PILOTE</small></span></a><label className="search"><span aria-hidden="true">⌕</span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={copy.search} aria-label="Rechercher" /></label><div className="language" aria-label="Choisir la langue">{(['ar', 'fr', 'en'] as const).map((item) => <button key={item} className={language === item ? 'active' : ''} onClick={() => setLanguage(item)}>{item.toUpperCase()}</button>)}</div><div className="header-actions"><button aria-label="Accès directeur" onClick={() => openPublisher('director')}>♧</button></div></div></header>
