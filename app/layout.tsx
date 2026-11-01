@@ -81,6 +81,19 @@ export default function RootLayout({
             __html: '(adsbygoogle = window.adsbygoogle || []).push({});',
           }}
         />
+        <ins
+          className="adsbygoogle"
+          style={{ display: 'block' }}
+          data-ad-format="fluid"
+          data-ad-layout-key="-fb+5w+4e-db+86"
+          data-ad-client="ca-pub-7828019536212338"
+          data-ad-slot="1651698750"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: '(adsbygoogle = window.adsbygoogle || []).push({});',
+          }}
+        />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
